@@ -5,7 +5,7 @@ const auth = require("../middleware/auth");
 const router = new express.Router();
 
 //signup
-router.post("/users", async (req, res) => {
+router.post("/signup", async (req, res) => {
   const user = new User(req.body);
 
   try {
@@ -45,50 +45,28 @@ router.post("/users/logout", auth, async (req, res) => {
   }
 });
 
-//logout of all devices
-router.post("/users/logoutAll", auth, async (req, res) => {
-  try {
-    req.user.tokens = [];
-    await req.user.save();
-    res.send();
-  } catch (e) {
-    res.status(500).send();
-  }
-});
-
 //get details of the user
 router.get("/users/me", auth, async (req, res) => {
   res.send(req.user);
 });
 
-//update the user details
-router.patch("/users/me", auth, async (req, res) => {
-  const updates = Object.keys(req.body);
-  const allowedUpdates = ["name", "email", "password"];
-  const isValidOperation = updates.every((update) =>
-    allowedUpdates.includes(update)
-  );
-
-  if (!isValidOperation) {
-    return res.status(400).send({ error: "Invalid updates!" });
-  }
-
+router.get("/feed", auth, async (req, res) => {
   try {
-    updates.forEach((update) => (req.user[update] = req.body[update]));
-    await req.user.save();
-    res.send(req.user);
-  } catch (e) {
-    res.status(400).send(e);
+    const user = req.user;
+
+    const targets = await User.find({
+      $and: [
+        { _id: { $ne: user } },
+        { _id: { $nin: user.likes } },
+        { _id: { $nin: user.dislikes } },
+      ],
+    });
+
+    return res.json(targets);
+  } catch (error) {
+    console.error(error);
+    throw error;
   }
 });
 
-//delete user
-router.delete("/users/me", auth, async (req, res) => {
-  try {
-    await req.user.remove();
-    res.send(req.user);
-  } catch (e) {
-    res.status(500).send();
-  }
-});
 module.exports = router;
